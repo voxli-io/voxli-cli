@@ -1,0 +1,120 @@
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { randomBytes } from "node:crypto";
+import { execFile } from "node:child_process";
+import { createInterface } from "node:readline/promises";
+import { stdin, stdout } from "node:process";
+import { getStableHostname } from "./hostname.js";
+
+const AUTH_TIMEOUT_MS = 120_000;
+const DEFAULT_APP_URL = "https://app.voxli.io";
+
+function getAppUrl(): string {
+  return process.env.VOXLI_APP_URL || DEFAULT_APP_URL;
+}
+
+const SUCCESS_HTML = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Voxli CLI</title>
+<style>body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb}
+.card{text-align:center;padding:2rem;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+h1{color:#0a3b29;margin:0 0 .5rem}p{color:#6b7280;margin:0}</style></head>
+<body><div class="card"><h1>Authenticated!</h1><p>You can close this tab and return to the terminal.</p></div></body>
+</html>`;
+
+const ERROR_HTML = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Voxli CLI</title>
+<style>body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;background:#f9fafb}
+.card{text-align:center;padding:2rem;border-radius:12px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.1)}
+h1{color:#dc2626;margin:0 0 .5rem}p{color:#6b7280;margin:0}</style></head>
+<body><div class="card"><h1>Authentication failed</h1><p>State mismatch. Please try again.</p></div></body>
+</html>`;
+
+function openBrowser(url: string): void {
+  const cmd =
+    process.platform === "darwin"
+      ? "open"
+      : process.platform === "win32"
+        ? "cmd"
+        : "xdg-open";
+  const args =
+    process.platform === "win32" ? ["/c", "start", url] : [url];
+
+  execFile(cmd, args, (err) => {
+    if (err) {
+      console.log(`\nOpen this URL in your browser:\n  ${url}\n`);
+    }
+  });
+}
+
+export async function browserAuth(): Promise<string> {
+  const rl = createInterface({ input: stdin, output: stdout });
+  try {
+    await rl.question("Press Enter to open the browser to authenticate...");
+  } finally {
+    rl.close();
+  }
+
+  return new Promise((resolve, reject) => {
+    const state = randomBytes(32).toString("hex");
+
+    const server = createServer((req: IncomingMessage, res: ServerResponse) => {
+      const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+
+      if (url.pathname !== "/callback") {
+        res.writeHead(404);
+        res.end("Not found");
+        return;
+      }
+
+      const returnedKey = url.searchParams.get("key");
+      const returnedState = url.searchParams.get("state");
+
+      if (returnedState !== state) {
+        res.writeHead(403, { "Content-Type": "text/html" });
+        res.end(ERROR_HTML);
+        return;
+      }
+
+      if (!returnedKey) {
+        res.writeHead(400, { "Content-Type": "text/html" });
+        res.end(ERROR_HTML);
+        return;
+      }
+
+      res.writeHead(200, { "Content-Type": "text/html" });
+      res.end(SUCCESS_HTML);
+
+      cleanup();
+      resolve(returnedKey);
+    });
+
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error("Browser authentication timed out after 2 minutes."));
+    }, AUTH_TIMEOUT_MS);
+
+    function cleanup() {
+      clearTimeout(timeout);
+      server.close();
+    }
+
+    server.listen(0, "127.0.0.1", () => {
+      const addr = server.address();
+      if (!addr || typeof addr === "string") {
+        cleanup();
+        reject(new Error("Failed to start local server."));
+        return;
+      }
+
+      const port = addr.port;
+      const hostname = encodeURIComponent(getStableHostname());
+      const authUrl = `${getAppUrl()}/cli-auth?port=${port}&state=${state}&hostname=${hostname}`;
+
+      console.log("Opening browser to authenticate...");
+      openBrowser(authUrl);
+      console.log(`Waiting for authentication (timeout: 2 min)...`);
+      console.log(`\nIf the browser didn't open, visit:\n  ${authUrl}\n`);
+    });
+  });
+}
