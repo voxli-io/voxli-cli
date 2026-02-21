@@ -19,7 +19,7 @@ async function promptForKey(): Promise<string> {
   }
 }
 
-async function validateAndSave(key: string): Promise<void> {
+async function validateAndSave(key: string, userId?: string): Promise<void> {
   console.log("Validating...");
   try {
     const hostname = getStableHostname();
@@ -37,15 +37,15 @@ async function validateAndSave(key: string): Promise<void> {
     console.warn("Warning: could not validate key (network error). Saving anyway.");
   }
 
-  await writeConfig({ apiKey: key });
+  await writeConfig({ apiKey: key, userId });
   console.log("API key saved to ~/.voxli/config.json");
 }
 
 export async function authCommand(opts: { manual?: boolean }): Promise<void> {
   if (!opts.manual) {
     try {
-      const key = await browserAuth();
-      await validateAndSave(key);
+      const result = await browserAuth();
+      await validateAndSave(result.apiKey, result.userId);
       return;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

@@ -47,7 +47,12 @@ function openBrowser(url: string): void {
   });
 }
 
-export async function browserAuth(): Promise<string> {
+export interface BrowserAuthResult {
+  apiKey: string;
+  userId?: string;
+}
+
+export async function browserAuth(): Promise<BrowserAuthResult> {
   const rl = createInterface({ input: stdin, output: stdout });
   try {
     await rl.question("Press Enter to open the browser to authenticate...");
@@ -55,7 +60,7 @@ export async function browserAuth(): Promise<string> {
     rl.close();
   }
 
-  return new Promise((resolve, reject) => {
+  return new Promise<BrowserAuthResult>((resolve, reject) => {
     const state = randomBytes(32).toString("hex");
 
     const server = createServer((req: IncomingMessage, res: ServerResponse) => {
@@ -69,6 +74,7 @@ export async function browserAuth(): Promise<string> {
 
       const returnedKey = url.searchParams.get("key");
       const returnedState = url.searchParams.get("state");
+      const returnedUserId = url.searchParams.get("user_id");
 
       if (returnedState !== state) {
         res.writeHead(403, { "Content-Type": "text/html" });
@@ -86,7 +92,7 @@ export async function browserAuth(): Promise<string> {
       res.end(SUCCESS_HTML);
 
       cleanup();
-      resolve(returnedKey);
+      resolve({ apiKey: returnedKey, userId: returnedUserId || undefined });
     });
 
     const timeout = setTimeout(() => {

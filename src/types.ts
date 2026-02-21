@@ -1,5 +1,6 @@
 export interface VoxliConfig {
   apiKey: string;
+  userId?: string;
 }
 
 export interface RegisterPayload {
