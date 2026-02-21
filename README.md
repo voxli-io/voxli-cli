@@ -12,13 +12,21 @@ Requires Node.js 18+.
 
 ## Setup
 
-Authenticate with your Voxli API key:
+Authenticate with your Voxli account:
 
 ```sh
 voxli auth
 ```
 
-This saves your key to `~/.voxli/config.json`. You can also set the `VOXLI_API_KEY` environment variable instead.
+This opens your browser to `app.voxli.io` where you log in and approve access. An API key is created automatically and saved to `~/.voxli/config.json`.
+
+To enter an API key manually instead:
+
+```sh
+voxli auth --manual
+```
+
+You can also set the `VOXLI_API_KEY` environment variable instead.
 
 ## Usage
 
@@ -40,5 +48,7 @@ The CLI polls the Voxli API for pending test batches. When work arrives, it spaw
 
 | Command | Description |
 |---|---|
-| `voxli auth` | Authenticate with your API key |
+| `voxli auth` | Authenticate via browser |
+| `voxli auth --manual` | Authenticate by entering an API key manually |
 | `voxli listen --command <cmd>` | Poll for pending test work and run it locally |
+
