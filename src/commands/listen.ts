@@ -50,6 +50,7 @@ export async function listenCommand(options: {
 
         const env: NodeJS.ProcessEnv = {
           ...process.env,
+          VOXLI_API_KEY: apiKey,
           TEST_RESULT_IDS: JSON.stringify(testResultIds),
         };
         if (runId) {
