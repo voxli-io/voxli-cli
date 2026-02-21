@@ -1,0 +1,26 @@
+{
+  "name": "@voxli/cli",
+  "version": "0.1.0",
+  "description": "CLI agent for running Voxli test scenarios locally",
+  "type": "module",
+  "bin": {
+    "voxli": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
