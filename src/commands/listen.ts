@@ -16,7 +16,7 @@ export async function listenCommand(options: {
   let apiKey = await resolveApiKeyAsync();
   if (!apiKey) {
     console.error(
-      "Error: No API key found. Set VOXLI_API_KEY or run `voxli auth`."
+      "Error: No API key found. Set VOXLI_API_TOKEN or run `voxli auth`."
     );
     process.exit(1);
   }
@@ -55,7 +55,7 @@ export async function listenCommand(options: {
 
         const env: NodeJS.ProcessEnv = {
           ...process.env,
-          VOXLI_API_KEY: apiKey,
+          VOXLI_API_TOKEN: apiKey,
           VOXLI_API_URL: process.env.VOXLI_API_URL,
           VOXLI_APP_URL: process.env.VOXLI_APP_URL,
           TEST_RESULT_IDS: JSON.stringify(testResultIds),
@@ -93,7 +93,7 @@ export async function listenCommand(options: {
       ) {
         if (isEnvToken) {
           console.error(
-            `Error: Authentication failed (${err.status}). Your VOXLI_API_KEY environment variable may be expired or invalid.`
+            `Error: Authentication failed (${err.status}). Your VOXLI_API_TOKEN environment variable may be expired or invalid.`
           );
           process.exit(1);
         }

@@ -26,7 +26,7 @@ To enter an API key manually instead:
 voxli auth --manual
 ```
 
-You can also set the `VOXLI_API_KEY` environment variable instead.
+You can also set the `VOXLI_API_TOKEN` environment variable instead.
 
 ## Usage
 
@@ -40,7 +40,7 @@ The CLI polls the Voxli API for pending test batches. When work arrives, it spaw
 
 | Variable | Description |
 |---|---|
-| `VOXLI_API_KEY` | Your API key |
+| `VOXLI_API_TOKEN` | Your API key |
 | `TEST_RESULT_IDS` | JSON array of test result IDs to run |
 | `RUN_ID` | The run ID (if part of a run) |
 

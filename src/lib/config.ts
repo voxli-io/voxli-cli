@@ -36,7 +36,7 @@ export async function writeConfig(config: {
 }
 
 export function resolveApiKey(): string | null {
-  const envKey = process.env.VOXLI_API_KEY;
+  const envKey = process.env.VOXLI_API_TOKEN;
   if (envKey) return envKey;
   // Caller should await readConfig() for the file-based key
   return null;
