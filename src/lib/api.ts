@@ -2,8 +2,12 @@ import type { RegisterPayload, RegisterResponse } from "../types.js";
 
 const DEFAULT_BASE_URL = "https://api.voxli.io";
 
-function getBaseUrl(): string {
+export function getApiBaseUrl(): string {
   return process.env.VOXLI_API_URL || DEFAULT_BASE_URL;
+}
+
+function getBaseUrl(): string {
+  return getApiBaseUrl();
 }
 
 export async function register(

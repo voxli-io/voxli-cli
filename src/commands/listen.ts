@@ -1,5 +1,9 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { resolveApiKeyAsync } from "../lib/config.js";
+import {
+  resolveApiKeyAsync,
+  resolveApiKey,
+  attemptTokenRefresh,
+} from "../lib/config.js";
 import { getStableHostname } from "../lib/hostname.js";
 import { register, ApiError } from "../lib/api.js";
 
@@ -8,7 +12,8 @@ const POLL_INTERVAL = 5_000;
 export async function listenCommand(options: {
   command: string;
 }): Promise<void> {
-  const apiKey = await resolveApiKeyAsync();
+  const isEnvToken = !!resolveApiKey();
+  let apiKey = await resolveApiKeyAsync();
   if (!apiKey) {
     console.error(
       "Error: No API key found. Set VOXLI_API_KEY or run `voxli auth`."
@@ -82,7 +87,30 @@ export async function listenCommand(options: {
         continue;
       }
     } catch (err) {
-      if (err instanceof ApiError) {
+      if (
+        err instanceof ApiError &&
+        (err.status === 401 || err.status === 403)
+      ) {
+        if (isEnvToken) {
+          console.error(
+            `Error: Authentication failed (${err.status}). Your VOXLI_API_KEY environment variable may be expired or invalid.`
+          );
+          process.exit(1);
+        }
+
+        console.log("Access token expired, attempting refresh...");
+        const newToken = await attemptTokenRefresh();
+        if (newToken) {
+          apiKey = newToken;
+          console.log("Token refreshed successfully.");
+          continue;
+        }
+
+        console.error(
+          "Error: Could not refresh access token. Please re-authenticate with `voxli auth`."
+        );
+        process.exit(1);
+      } else if (err instanceof ApiError) {
         console.error(`Poll error: API ${err.status}`);
       } else {
         console.error(`Poll error: ${err}`);

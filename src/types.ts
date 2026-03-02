@@ -1,6 +1,8 @@
 export interface VoxliConfig {
-  apiKey: string;
-  userId?: string;
+  accessToken: string;
+  apiKey?: string; // legacy backwards compat
+  refreshToken?: string;
+  clientId?: string;
 }
 
 export interface RegisterPayload {

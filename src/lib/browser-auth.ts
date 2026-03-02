@@ -1,16 +1,21 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import {
+  createServer,
+  type IncomingMessage,
+  type ServerResponse,
+} from "node:http";
 import { randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { getStableHostname } from "./hostname.js";
+import { getApiBaseUrl } from "./api.js";
+import {
+  generatePkceChallenge,
+  registerOAuthClient,
+  exchangeCodeForToken,
+  buildAuthorizeUrl,
+} from "./oauth.js";
 
 const AUTH_TIMEOUT_MS = 120_000;
-const DEFAULT_APP_URL = "https://app.voxli.io";
-
-function getAppUrl(): string {
-  return process.env.VOXLI_APP_URL || DEFAULT_APP_URL;
-}
 
 const SUCCESS_HTML = `<!DOCTYPE html>
 <html>
@@ -48,8 +53,9 @@ function openBrowser(url: string): void {
 }
 
 export interface BrowserAuthResult {
-  apiKey: string;
-  userId?: string;
+  accessToken: string;
+  refreshToken?: string;
+  clientId: string;
 }
 
 export async function browserAuth(): Promise<BrowserAuthResult> {
@@ -60,40 +66,58 @@ export async function browserAuth(): Promise<BrowserAuthResult> {
     rl.close();
   }
 
+  const baseUrl = getApiBaseUrl();
+
   return new Promise<BrowserAuthResult>((resolve, reject) => {
     const state = randomBytes(32).toString("hex");
 
-    const server = createServer((req: IncomingMessage, res: ServerResponse) => {
-      const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+    const server = createServer(
+      (req: IncomingMessage, res: ServerResponse) => {
+        const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
 
-      if (url.pathname !== "/callback") {
-        res.writeHead(404);
-        res.end("Not found");
-        return;
+        if (url.pathname !== "/callback") {
+          res.writeHead(404);
+          res.end("Not found");
+          return;
+        }
+
+        const returnedCode = url.searchParams.get("code");
+        const returnedState = url.searchParams.get("state");
+
+        if (returnedState !== state) {
+          res.writeHead(403, { "Content-Type": "text/html" });
+          res.end(ERROR_HTML);
+          return;
+        }
+
+        if (!returnedCode) {
+          res.writeHead(400, { "Content-Type": "text/html" });
+          res.end(ERROR_HTML);
+          return;
+        }
+
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(SUCCESS_HTML);
+
+        cleanup();
+
+        exchangeCodeForToken(
+          baseUrl,
+          returnedCode,
+          codeVerifier,
+          clientId,
+          redirectUri
+        )
+          .then(({ accessToken, refreshToken }) =>
+            resolve({ accessToken, refreshToken, clientId })
+          )
+          .catch(reject);
       }
+    );
 
-      const returnedKey = url.searchParams.get("key");
-      const returnedState = url.searchParams.get("state");
-      const returnedUserId = url.searchParams.get("user_id");
-
-      if (returnedState !== state) {
-        res.writeHead(403, { "Content-Type": "text/html" });
-        res.end(ERROR_HTML);
-        return;
-      }
-
-      if (!returnedKey) {
-        res.writeHead(400, { "Content-Type": "text/html" });
-        res.end(ERROR_HTML);
-        return;
-      }
-
-      res.writeHead(200, { "Content-Type": "text/html" });
-      res.end(SUCCESS_HTML);
-
-      cleanup();
-      resolve({ apiKey: returnedKey, userId: returnedUserId || undefined });
-    });
+    let codeVerifier: string;
+    let clientId: string;
+    let redirectUri: string;
 
     const timeout = setTimeout(() => {
       cleanup();
@@ -105,22 +129,39 @@ export async function browserAuth(): Promise<BrowserAuthResult> {
       server.close();
     }
 
-    server.listen(0, "127.0.0.1", () => {
-      const addr = server.address();
-      if (!addr || typeof addr === "string") {
+    server.listen(0, "127.0.0.1", async () => {
+      try {
+        const addr = server.address();
+        if (!addr || typeof addr === "string") {
+          cleanup();
+          reject(new Error("Failed to start local server."));
+          return;
+        }
+
+        const port = addr.port;
+        redirectUri = `http://127.0.0.1:${port}/callback`;
+
+        const registration = await registerOAuthClient(baseUrl, redirectUri);
+        clientId = registration.clientId;
+
+        const pkce = generatePkceChallenge();
+        codeVerifier = pkce.codeVerifier;
+
+        const authUrl = buildAuthorizeUrl(baseUrl, {
+          clientId,
+          redirectUri,
+          codeChallenge: pkce.codeChallenge,
+          state,
+        });
+
+        console.log("Opening browser to authenticate...");
+        openBrowser(authUrl);
+        console.log("Waiting for authentication (timeout: 2 min)...");
+        console.log(`\nIf the browser didn't open, visit:\n  ${authUrl}\n`);
+      } catch (err) {
         cleanup();
-        reject(new Error("Failed to start local server."));
-        return;
+        reject(err);
       }
-
-      const port = addr.port;
-      const hostname = encodeURIComponent(getStableHostname());
-      const authUrl = `${getAppUrl()}/cli-auth?port=${port}&state=${state}&hostname=${hostname}`;
-
-      console.log("Opening browser to authenticate...");
-      openBrowser(authUrl);
-      console.log(`Waiting for authentication (timeout: 2 min)...`);
-      console.log(`\nIf the browser didn't open, visit:\n  ${authUrl}\n`);
     });
   });
 }
