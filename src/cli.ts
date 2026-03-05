@@ -18,6 +18,7 @@ program
   .command("auth")
   .description("Authenticate with your Voxli API key")
   .option("--manual", "Enter API key manually instead of browser auth")
+  .option("--local", "Save credentials in the current directory")
   .action(authCommand);
 
 program

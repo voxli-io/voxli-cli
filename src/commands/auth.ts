@@ -21,7 +21,8 @@ async function promptForToken(): Promise<string> {
 
 async function validateAndSave(
   token: string,
-  extra?: { refreshToken?: string; clientId?: string }
+  extra?: { refreshToken?: string; clientId?: string },
+  opts?: { local?: boolean }
 ): Promise<void> {
   const label = extra ? "Access token" : "API key";
   console.log("Validating...");
@@ -45,22 +46,33 @@ async function validateAndSave(
     );
   }
 
-  await writeConfig({
-    accessToken: token,
-    refreshToken: extra?.refreshToken,
-    clientId: extra?.clientId,
-  });
-  console.log(`${label} saved to ~/.voxli/config.json`);
+  const target = opts?.local ? "local" : "global";
+  const savedPath = await writeConfig(
+    {
+      accessToken: token,
+      refreshToken: extra?.refreshToken,
+      clientId: extra?.clientId,
+    },
+    { target }
+  );
+  console.log(`${label} saved to ${savedPath}`);
 }
 
-export async function authCommand(opts: { manual?: boolean }): Promise<void> {
+export async function authCommand(opts: {
+  manual?: boolean;
+  local?: boolean;
+}): Promise<void> {
   if (!opts.manual) {
     try {
       const result = await browserAuth();
-      await validateAndSave(result.accessToken, {
-        refreshToken: result.refreshToken,
-        clientId: result.clientId,
-      });
+      await validateAndSave(
+        result.accessToken,
+        {
+          refreshToken: result.refreshToken,
+          clientId: result.clientId,
+        },
+        { local: opts.local }
+      );
       return;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -70,5 +82,5 @@ export async function authCommand(opts: { manual?: boolean }): Promise<void> {
   }
 
   const token = await promptForToken();
-  await validateAndSave(token);
+  await validateAndSave(token, undefined, { local: opts.local });
 }

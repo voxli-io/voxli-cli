@@ -1,7 +1,8 @@
+import { join } from "node:path";
 import { spawn, type ChildProcess } from "node:child_process";
 import {
-  resolveApiKeyAsync,
   resolveApiKey,
+  resolveConfig,
   attemptTokenRefresh,
 } from "../lib/config.js";
 import { getStableHostname } from "../lib/hostname.js";
@@ -13,7 +14,21 @@ export async function listenCommand(options: {
   command: string;
 }): Promise<void> {
   const isEnvToken = !!resolveApiKey();
-  let apiKey = await resolveApiKeyAsync();
+  let apiKey: string | null = null;
+  let credentialSource: string | null = null;
+
+  if (isEnvToken) {
+    apiKey = resolveApiKey();
+    credentialSource = "VOXLI_API_TOKEN";
+  } else {
+    const resolved = await resolveConfig();
+    if (resolved) {
+      const { config, configDir } = resolved;
+      apiKey = config.accessToken ?? config.apiKey ?? null;
+      credentialSource = join(configDir, "config.json");
+    }
+  }
+
   if (!apiKey) {
     console.error(
       "Error: No API key found. Set VOXLI_API_TOKEN or run `voxli auth`."
@@ -35,7 +50,7 @@ export async function listenCommand(options: {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 
-  console.log(`Listening as ${hostname}...`);
+  console.log(`Listening as ${hostname} using credentials from ${credentialSource}`);
 
   while (true) {
     try {

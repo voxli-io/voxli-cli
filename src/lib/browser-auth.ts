@@ -126,6 +126,7 @@ export async function browserAuth(): Promise<BrowserAuthResult> {
 
     function cleanup() {
       clearTimeout(timeout);
+      server.closeAllConnections();
       server.close();
     }
 
