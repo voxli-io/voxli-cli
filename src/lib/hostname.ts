@@ -14,3 +14,10 @@ export function getStableHostname(): string {
   }
   return hostname();
 }
+
+export function buildAgentIdentifier(name: string | undefined): string {
+  const host = getStableHostname();
+  if (!name) return host;
+  const trimmed = name.replace(/\s+/g, "");
+  return trimmed ? `${trimmed}-${host}` : host;
+}

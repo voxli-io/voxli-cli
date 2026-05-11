@@ -114,30 +114,56 @@ export async function resolveApiKeyAsync(): Promise<string | null> {
   return config?.accessToken ?? config?.apiKey ?? null;
 }
 
-export async function attemptTokenRefresh(): Promise<string | null> {
+export async function attemptTokenRefresh(
+  expiredToken?: string
+): Promise<string | null> {
   try {
     const resolved = await resolveConfig();
     if (!resolved) return null;
     const { config, configDir } = resolved;
+
+    // Another listener may have already refreshed — adopt that token.
+    if (
+      expiredToken &&
+      config.accessToken &&
+      config.accessToken !== expiredToken
+    ) {
+      return config.accessToken;
+    }
+
     if (!config.refreshToken || !config.clientId) return null;
 
     const baseUrl = getApiBaseUrl();
-    const result = await refreshAccessToken(
-      baseUrl,
-      config.refreshToken,
-      config.clientId
-    );
+    try {
+      const result = await refreshAccessToken(
+        baseUrl,
+        config.refreshToken,
+        config.clientId
+      );
 
-    await writeConfig(
-      {
-        accessToken: result.accessToken,
-        refreshToken: result.refreshToken ?? config.refreshToken,
-        clientId: config.clientId,
-      },
-      { configDir }
-    );
+      await writeConfig(
+        {
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken ?? config.refreshToken,
+          clientId: config.clientId,
+        },
+        { configDir }
+      );
 
-    return result.accessToken;
+      return result.accessToken;
+    } catch {
+      // Refresh failed (likely because a sibling listener already used the
+      // refresh token). Retry-read the config briefly in case the winner is
+      // still flushing its write to disk.
+      if (!expiredToken) return null;
+      for (let i = 0; i < 5; i++) {
+        await new Promise((r) => setTimeout(r, 100));
+        const recheck = await resolveConfig();
+        const fresh = recheck?.config.accessToken;
+        if (fresh && fresh !== expiredToken) return fresh;
+      }
+      return null;
+    }
   } catch {
     return null;
   }

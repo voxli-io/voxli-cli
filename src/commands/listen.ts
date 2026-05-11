@@ -5,13 +5,14 @@ import {
   resolveConfig,
   attemptTokenRefresh,
 } from "../lib/config.js";
-import { getStableHostname } from "../lib/hostname.js";
+import { buildAgentIdentifier, getStableHostname } from "../lib/hostname.js";
 import { register, ApiError } from "../lib/api.js";
 
 const POLL_INTERVAL = 5_000;
 
 export async function listenCommand(options: {
   command: string;
+  name?: string;
 }): Promise<void> {
   const isEnvToken = !!resolveApiKey();
   let apiKey: string | null = null;
@@ -36,7 +37,8 @@ export async function listenCommand(options: {
     process.exit(1);
   }
 
-  const hostname = getStableHostname();
+  const displayName = options.name ?? getStableHostname();
+  const uniqueIdentifier = buildAgentIdentifier(options.name);
   const children = new Set<ChildProcess>();
 
   // Graceful shutdown
@@ -50,13 +52,15 @@ export async function listenCommand(options: {
   process.on("SIGINT", shutdown);
   process.on("SIGTERM", shutdown);
 
-  console.log(`Listening as ${hostname} using credentials from ${credentialSource}`);
+  console.log(
+    `Listening as ${displayName} (${uniqueIdentifier}) using credentials from ${credentialSource}`
+  );
 
   while (true) {
     try {
       const data = await register(apiKey, {
-        name: hostname,
-        unique_identifier: hostname,
+        name: displayName,
+        unique_identifier: uniqueIdentifier,
       });
 
       const testResultIds = data.test_result_ids ?? [];
@@ -114,7 +118,7 @@ export async function listenCommand(options: {
         }
 
         console.log("Access token expired, attempting refresh...");
-        const newToken = await attemptTokenRefresh();
+        const newToken = await attemptTokenRefresh(apiKey ?? undefined);
         if (newToken) {
           apiKey = newToken;
           console.log("Token refreshed successfully.");

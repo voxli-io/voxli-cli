@@ -25,6 +25,7 @@ program
   .command("listen")
   .description("Poll for pending test work and run it locally")
   .requiredOption("--command <cmd>", "Shell command to run per batch")
+  .option("--name <name>", "Display name for this agent (defaults to hostname)")
   .action(listenCommand);
 
 program.parse();
