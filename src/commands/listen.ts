@@ -7,8 +7,10 @@ import {
 } from "../lib/config.js";
 import { buildAgentIdentifier, getStableHostname } from "../lib/hostname.js";
 import { register, ApiError } from "../lib/api.js";
+import { getJwtExpiry } from "../lib/oauth.js";
 
 const POLL_INTERVAL = 5_000;
+const REFRESH_BUFFER_SECONDS = 30 * 60;
 
 export async function listenCommand(options: {
   command: string;
@@ -58,6 +60,20 @@ export async function listenCommand(options: {
 
   while (true) {
     try {
+      // Proactively refresh if the token expires within the buffer window so
+      // newly-spawned subprocesses inherit a token that will outlast the test.
+      if (!isEnvToken) {
+        const exp = getJwtExpiry(apiKey);
+        const nowSec = Math.floor(Date.now() / 1000);
+        if (exp !== null && exp - nowSec < REFRESH_BUFFER_SECONDS) {
+          const newToken = await attemptTokenRefresh(apiKey);
+          if (newToken && newToken !== apiKey) {
+            apiKey = newToken;
+            console.log("Access token refreshed proactively.");
+          }
+        }
+      }
+
       const data = await register(apiKey, {
         name: displayName,
         unique_identifier: uniqueIdentifier,

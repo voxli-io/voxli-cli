@@ -101,6 +101,23 @@ export async function refreshAccessToken(
   };
 }
 
+/**
+ * Read the `exp` claim (seconds since epoch) from a JWT access token.
+ * Returns null if the token isn't a parseable JWT or has no `exp`.
+ */
+export function getJwtExpiry(token: string): number | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  try {
+    const payload = JSON.parse(
+      Buffer.from(parts[1], "base64url").toString("utf-8")
+    );
+    return typeof payload.exp === "number" ? payload.exp : null;
+  } catch {
+    return null;
+  }
+}
+
 export function buildAuthorizeUrl(
   baseUrl: string,
   params: {
