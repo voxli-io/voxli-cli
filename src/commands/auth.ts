@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline/promises";
 import { stdin, stdout } from "node:process";
-import { writeConfig } from "../lib/config.js";
+import { join } from "node:path";
+import { findLocalConfigDir, writeConfig } from "../lib/config.js";
 import { register, ApiError } from "../lib/api.js";
 import { getStableHostname } from "../lib/hostname.js";
 import { browserAuth } from "../lib/browser-auth.js";
@@ -46,14 +47,31 @@ async function validateAndSave(
     );
   }
 
-  const target = opts?.local ? "local" : "global";
+  // Target selection:
+  // - --local: force cwd/.voxli (creates if missing).
+  // - default: reuse an existing local config in the cwd ancestor chain so
+  //   the listener (which reads local first) picks up the new credentials.
+  //   Falls back to the global config if no local one exists.
+  let writeOpts: { target?: "global" | "local"; configDir?: string };
+  if (opts?.local) {
+    writeOpts = { configDir: join(process.cwd(), ".voxli") };
+  } else {
+    const existingLocal = await findLocalConfigDir();
+    if (existingLocal) {
+      console.log(`Detected local config at ${existingLocal}; saving there.`);
+      writeOpts = { configDir: existingLocal };
+    } else {
+      writeOpts = { target: "global" };
+    }
+  }
+
   const savedPath = await writeConfig(
     {
       accessToken: token,
       refreshToken: extra?.refreshToken,
       clientId: extra?.clientId,
     },
-    { target }
+    writeOpts
   );
   console.log(`${label} saved to ${savedPath}`);
 }
