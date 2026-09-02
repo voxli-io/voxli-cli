@@ -18,15 +18,19 @@ Authenticate with your Voxli account:
 voxli auth
 ```
 
-This opens your browser to `app.voxli.io` where you log in and approve access. An API key is created automatically and saved to `~/.voxli/config.json`.
+This opens your browser to `app.voxli.io` where you log in and approve access. A user-scoped access token (with a refresh token) is saved to `~/.voxli/config.json`, or to an existing `.voxli/config.json` found in the current directory or a parent. Use `--local` to force `./.voxli/config.json`.
 
-To enter an API key manually instead:
+### Headless machines, VMs, and SSH
 
-```sh
-voxli auth --manual
-```
+The browser doesn't have to be on the same machine. Run `voxli auth`, open the printed URL anywhere, and log in. The browser is then sent to `http://127.0.0.1:<port>/callback`, which it can't reach from another machine and shows a "can't connect" page. Copy the full URL from the address bar and paste it into the terminal prompt; the CLI completes the login from there.
 
-You can also set the `VOXLI_API_TOKEN` environment variable instead.
+The CLI only tries to open a browser when one is likely in front of you (not over SSH, in CI, or without a display). Set `BROWSER=none` to never open one, or `BROWSER=<command>` to choose which.
+
+Pasting requires an interactive terminal (`ssh -t` if needed).
+
+### CI and service accounts
+
+Set the `VOXLI_API_TOKEN` environment variable to skip the login entirely; it takes precedence over any config file. Env-var tokens are never refreshed.
 
 ## Usage
 
@@ -44,11 +48,23 @@ The CLI polls the Voxli API for pending test batches. When work arrives, it spaw
 | `TEST_RESULT_IDS` | JSON array of test result IDs to run |
 | `RUN_ID` | The run ID (if part of a run) |
 
+## Credential lookup order
+
+1. `VOXLI_API_TOKEN` environment variable
+2. Nearest `.voxli/config.json` walking up from the current directory
+3. `~/.voxli/config.json`
+
 ## Commands
 
 | Command | Description |
 |---|---|
 | `voxli auth` | Authenticate via browser |
-| `voxli auth --manual` | Authenticate by entering an API key manually |
+| `voxli auth --local` | Save credentials to `./.voxli/config.json` |
 | `voxli listen --command <cmd>` | Poll for pending test work and run it locally |
 
+## Development
+
+```sh
+npm run build   # compile to dist/
+npm test        # run the test suite
+```

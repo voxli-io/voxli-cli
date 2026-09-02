@@ -8,7 +8,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "tsx --test \"tests/**/*.test.ts\""
   },
   "files": [
     "dist"
@@ -21,6 +22,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "tsx": "^4.23.13",
     "typescript": "^5.7.0"
   }
 }
