@@ -5,6 +5,7 @@ import type { AddressInfo } from "node:net";
 import { createHash } from "node:crypto";
 import { PassThrough, Writable } from "node:stream";
 import {
+  AuthCancelledError,
   browserAuth,
   browserLaunchCommand,
   parseCallbackInput,
@@ -462,6 +463,44 @@ describe("browserAuth", () => {
       await assert.rejects(auth.promise, /registration failed/);
     } finally {
       fake.failRegistration = false;
+    }
+  });
+
+  it("cancels on Ctrl-C at the confirm prompt, before anything is opened", async () => {
+    const input = new PassThrough();
+    let out = "";
+    // readline only handles Ctrl-C in terminal mode, which it picks from the
+    // output stream; BROWSER keeps a regression from launching a real browser.
+    const output = Object.assign(
+      new Writable({
+        write(chunk, _enc, cb) {
+          out += chunk.toString();
+          cb();
+        },
+      }),
+      { isTTY: true }
+    );
+    const savedBrowser = process.env.BROWSER;
+    process.env.BROWSER = "true";
+    try {
+      const promise = browserAuth({
+        launchBrowser: true,
+        interactive: true,
+        // Bounds a regression: without this the flow would wait for a code.
+        timeoutMs: 500,
+        input,
+        output,
+      });
+      promise.catch(() => {});
+      await waitFor(() => /Press Enter/.test(out));
+
+      input.write("\u0003");
+
+      await assert.rejects(promise, (err) => err instanceof AuthCancelledError);
+      assert.doesNotMatch(out, AUTH_URL_RE, "no login should have been started");
+    } finally {
+      if (savedBrowser === undefined) delete process.env.BROWSER;
+      else process.env.BROWSER = savedBrowser;
     }
   });
 });
