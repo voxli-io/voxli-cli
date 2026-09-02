@@ -8,7 +8,9 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "lint": "eslint src tests",
+    "test": "tsx --test tests/*.test.ts"
   },
   "files": [
     "dist"
@@ -20,7 +22,11 @@
     "commander": "^13.1.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.0.0",
-    "typescript": "^5.7.0"
+    "eslint": "^10.9.1",
+    "tsx": "^4.23.13",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.69.0"
   }
 }

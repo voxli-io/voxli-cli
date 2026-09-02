@@ -1,43 +1,29 @@
-import { createInterface } from "node:readline/promises";
-import { stdin, stdout } from "node:process";
 import { join } from "node:path";
 import { findLocalConfigDir, writeConfig } from "../lib/config.js";
 import { register, ApiError } from "../lib/api.js";
 import { getStableHostname } from "../lib/hostname.js";
-import { browserAuth } from "../lib/browser-auth.js";
-
-async function promptForToken(): Promise<string> {
-  const rl = createInterface({ input: stdin, output: stdout });
-  try {
-    const token = await rl.question("Enter your Voxli API key: ");
-    if (!token.trim()) {
-      console.error("API key cannot be empty.");
-      process.exit(1);
-    }
-    return token.trim();
-  } finally {
-    rl.close();
-  }
-}
+import {
+  browserAuth,
+  AuthCancelledError,
+  type BrowserAuthResult,
+} from "../lib/browser-auth.js";
 
 async function validateAndSave(
-  token: string,
-  extra?: { refreshToken?: string; clientId?: string },
+  result: BrowserAuthResult,
   opts?: { local?: boolean }
 ): Promise<void> {
-  const label = extra ? "Access token" : "API key";
   console.log("Validating...");
   try {
     const hostname = getStableHostname();
-    await register(token, {
+    await register(result.accessToken, {
       name: hostname,
       unique_identifier: hostname,
     });
-    console.log(`${label} is valid.`);
+    console.log("Access token is valid.");
   } catch (err) {
     if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
       console.error(
-        `Authentication failed (${err.status}). Check your ${label.toLowerCase()}.`
+        `Authentication failed (${err.status}). Please try \`voxli auth\` again.`
       );
       process.exit(1);
     }
@@ -67,38 +53,32 @@ async function validateAndSave(
 
   const savedPath = await writeConfig(
     {
-      accessToken: token,
-      refreshToken: extra?.refreshToken,
-      clientId: extra?.clientId,
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      clientId: result.clientId,
     },
     writeOpts
   );
-  console.log(`${label} saved to ${savedPath}`);
+  console.log(`Access token saved to ${savedPath}`);
 }
 
-export async function authCommand(opts: {
-  manual?: boolean;
+export interface AuthCommandOptions {
   local?: boolean;
-}): Promise<void> {
-  if (!opts.manual) {
-    try {
-      const result = await browserAuth();
-      await validateAndSave(
-        result.accessToken,
-        {
-          refreshToken: result.refreshToken,
-          clientId: result.clientId,
-        },
-        { local: opts.local }
-      );
-      return;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.log(`\nBrowser auth failed: ${msg}`);
-      console.log("Falling back to manual token entry.\n");
+}
+
+export async function authCommand(opts: AuthCommandOptions): Promise<void> {
+  let result: BrowserAuthResult;
+  try {
+    result = await browserAuth();
+  } catch (err) {
+    if (err instanceof AuthCancelledError) {
+      console.log("\nCancelled.");
+      process.exit(130);
     }
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`\nAuthentication failed: ${msg}`);
+    process.exit(1);
   }
 
-  const token = await promptForToken();
-  await validateAndSave(token, undefined, { local: opts.local });
+  await validateAndSave(result, { local: opts.local });
 }

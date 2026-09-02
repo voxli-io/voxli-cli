@@ -1,5 +1,5 @@
 import { readFile, writeFile, mkdir, chmod, access } from "node:fs/promises";
-import { join, dirname, parse } from "node:path";
+import { join, dirname } from "node:path";
 import { homedir } from "node:os";
 import type { VoxliConfig } from "../types.js";
 import { refreshAccessToken } from "./oauth.js";
