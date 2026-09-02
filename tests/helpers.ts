@@ -26,7 +26,7 @@ export function run(args: string[], env?: Record<string, string>): Promise<CliRe
           stderr: stderr?.toString() ?? "",
           exitCode: error?.code === "ERR_CHILD_PROCESS_STDIO_MAXBUFFER"
             ? 1
-            : (error as any)?.status ?? child.exitCode ?? 0,
+            : ((error as { status?: number } | null)?.status ?? child.exitCode ?? 0),
         });
       }
     );

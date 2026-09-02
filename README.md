@@ -67,4 +67,7 @@ The CLI polls the Voxli API for pending test batches. When work arrives, it spaw
 ```sh
 npm run build   # compile to dist/
 npm test        # run the test suite
+npm run lint    # eslint
 ```
+
+CI runs lint, build, and tests on every pull request.

@@ -280,14 +280,14 @@ function waitForCode(opts: {
   const { server, state, input, output, interactive, timeoutMs } = opts;
 
   return new Promise((resolve, reject) => {
-    let rl: Interface | undefined;
-    let timer: NodeJS.Timeout | undefined;
     let settled = false;
 
+    // `timer` and `rl` are declared below; finish() only runs from async
+    // callbacks, so they're always initialised by the time it's called.
     const finish = (done: () => void) => {
       if (settled) return;
       settled = true;
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
       server.removeListener("request", onRequest);
       if (rl) {
         rl.close();
@@ -324,7 +324,7 @@ function waitForCode(opts: {
 
     server.on("request", onRequest);
 
-    timer = setTimeout(() => {
+    const timer = setTimeout(() => {
       finish(() =>
         reject(
           new Error(
@@ -334,14 +334,16 @@ function waitForCode(opts: {
       );
     }, timeoutMs);
 
-    if (!interactive) return;
+    const rl: Interface | undefined = interactive
+      ? createInterface({ input, output, prompt: PASTE_PROMPT })
+      : undefined;
+    if (!rl) return;
 
-    rl = createInterface({ input, output, prompt: PASTE_PROMPT });
     rl.on("SIGINT", () => finish(() => reject(new AuthCancelledError())));
     rl.on("line", (line) => {
       if (settled) return;
       if (!line.trim()) {
-        rl?.prompt();
+        rl.prompt();
         return;
       }
       const parsed = parseCallbackInput(line, state);
@@ -351,7 +353,7 @@ function waitForCode(opts: {
         finish(() => reject(new Error(parsed.message)));
       } else {
         output.write(parsed.message + "\n");
-        rl?.prompt();
+        rl.prompt();
       }
     });
     rl.prompt();
