@@ -10,7 +10,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "eslint src tests",
-    "test": "tsx --test \"tests/**/*.test.ts\""
+    "test": "tsx --test tests/*.test.ts"
   },
   "files": [
     "dist"
