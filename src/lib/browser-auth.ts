@@ -250,8 +250,10 @@ function confirm(input: Input, output: Output, prompt: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const rl = createInterface({ input, output });
     rl.on("SIGINT", () => {
-      rl.close();
+      // Reject first: rl.close() emits "close" synchronously, and the close
+      // listener below would otherwise resolve before this reject runs.
       reject(new AuthCancelledError());
+      rl.close();
     });
     // EOF on stdin: nothing to wait for, just carry on.
     rl.on("close", () => resolve());

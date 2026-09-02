@@ -70,4 +70,5 @@ npm test        # run the test suite
 npm run lint    # eslint
 ```
 
-CI runs lint, build, and tests on every pull request.
+Requires Node 20 or newer (see `engines` in `package.json`). CI runs lint, build,
+and tests on every pull request against Node 20, 22, and 24.

@@ -4,22 +4,28 @@ on:
   release:
     types: [published]
 
+# Trusted publishing: npm authenticates the workflow via GitHub's OIDC token,
+# so no NPM_TOKEN secret is needed. Requires npm >= 11.5.1 (Node 24 ships it).
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
 
       - name: Set version from release tag
         run: npm version "${GITHUB_REF_NAME#v}" --no-git-tag-version
 
       - run: npm ci
       - run: npm run build
+      - run: npm test
       - run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
