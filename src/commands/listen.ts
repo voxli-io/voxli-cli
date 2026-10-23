@@ -82,10 +82,8 @@ export async function listenCommand(options: {
       const testResultIds = data.test_result_ids ?? [];
 
       if (testResultIds.length > 0) {
-        const runId = data.run_id;
-        const label = runId ? `run ${runId}` : "standalone";
         console.log(
-          `Spawning subprocess for ${testResultIds.length} test(s) (${label})`
+          `Spawning subprocess for ${testResultIds.length} test(s)`
         );
 
         const env: NodeJS.ProcessEnv = {
@@ -95,9 +93,6 @@ export async function listenCommand(options: {
           VOXLI_APP_URL: process.env.VOXLI_APP_URL,
           TEST_RESULT_IDS: JSON.stringify(testResultIds),
         };
-        if (runId) {
-          env.RUN_ID = runId;
-        }
 
         const child = spawn(options.command, {
           stdio: "inherit",
@@ -108,13 +103,13 @@ export async function listenCommand(options: {
 
         child.on("error", (err) => {
           children.delete(child);
-          console.error(`Subprocess (${label}) failed to start: ${err.message}`);
+          console.error(`Subprocess failed to start: ${err.message}`);
         });
 
         child.on("close", (code) => {
           children.delete(child);
           if (code !== 0 && code !== null) {
-            console.log(`Subprocess (${label}) exited with code ${code}`);
+            console.log(`Subprocess exited with code ${code}`);
           }
         });
 

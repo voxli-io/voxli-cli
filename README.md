@@ -46,7 +46,6 @@ The CLI polls the Voxli API for pending test batches. When work arrives, it spaw
 |---|---|
 | `VOXLI_API_TOKEN` | Your API key |
 | `TEST_RESULT_IDS` | JSON array of test result IDs to run |
-| `RUN_ID` | The run ID (if part of a run) |
 
 ## Credential lookup order
 
