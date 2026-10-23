@@ -12,5 +12,4 @@ export interface RegisterPayload {
 
 export interface RegisterResponse {
   test_result_ids?: string[];
-  run_id?: string;
 }
